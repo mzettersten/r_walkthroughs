@@ -44,7 +44,9 @@ For example, assume that your hypothesis is that accuracy will be higher in the 
 (Massed,Random,Spaced)=(0.67,-0.33,-0.33)
 
 The values of the contrast code should:
+
 * sum to (roughly) 0
+
 * be unit-weighted, if possible (difference of 1)
 
 ```{r}
@@ -82,7 +84,7 @@ The reason to test c2 is to account for residual variance in the model, essentia
 
 ###Single-contrast
 
-The main controversial aspect of the Abelson & Prentice approach is that one is left interpreting a null effect (c2 is non-significant) as evidence of absence, i.e. that there is no effect. This goes against the basic tenets of null Null Hypothesis Testing. The single-contrast approach (Richter, 2015) says "why not just do away with this and simply test the hypothesis you are interested in?". In other words, on this approach (more controversially), you simply test c1.
+The main controversial aspect of the Abelson & Prentice approach is that one is left interpreting a null effect (c2 is non-significant) as evidence of absence, i.e. that there is no effect. This goes against the basic tenets of null hypothesis testing. The single-contrast approach (Richter, 2015) says "why not just do away with this and simply test the hypothesis you are interested in?". In other words, on this approach (more controversially), you simply test c1.
 
 ```{r}
 m <- lm(accuracy~c1, data=d)
@@ -185,8 +187,10 @@ ggplot(sumCond,aes(condition,meanAcc,fill=condition,color=condition)) +
 
 ###Abelson & Prentice approach.
 
-Fit model with two orthogonal contrast codes, where contrast code 1 represents the hypothesis of interest. To test if our Massed > Random == Spaced hypothesis (contrast code c1) differs between age group, we would ask 
+Fit the model with two orthogonal contrast codes, where contrast code 1 represents the hypothesis of interest. To test if our Massed > Random == Spaced hypothesis (contrast code c1) differs between age group, we would ask 
+
 A) is the c1 * group effect significant?
+
 B) is the c2 * group effect non-significant?
 
 ```{r}
