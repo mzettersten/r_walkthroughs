@@ -1,0 +1,219 @@
+---
+title: "Testing Categorical Variables With Three Levels"
+output: html_document
+---
+
+##Set up simulated dataset
+
+```{r setup, warning=F,message=F}
+library(tidyverse)
+library(sciplot)
+library(cowplot)
+set.seed(1)
+n <- 90 # number of subjects
+
+d <- data.frame(subID = rep(paste("p",seq(n),sep=""), each=1),
+                accuracy = c(pmin(1,rnorm(n/3,mean=0.8,sd=0.15)),rep(pmin(1,rnorm(n/3,mean=0.65,sd=0.15)),each=2)),
+                condition = rep(c("Massed", "Spaced","Random"), each=n/3))
+
+adults <- d
+```
+
+## Plot the data
+
+
+```{r}
+sumCond <-  d %>%
+  group_by(condition) %>%
+  summarize(meanAcc=mean(accuracy),seAcc=se(accuracy))
+
+ggplot(sumCond,aes(condition,meanAcc,fill=condition,color=condition)) +
+  geom_bar(stat="identity",color="black",alpha=0.5)+
+  geom_jitter(data=d,aes(y=accuracy,color=condition),width=0.1)+
+  geom_errorbar(aes(ymin=meanAcc-seAcc,ymax=meanAcc+seAcc),color="black",width=0)+
+  scale_color_brewer(type="qual",palette="Set1")+
+  scale_fill_brewer(type="qual",palette="Set1")+
+  ylab("accuracy")
+```
+
+## Hypothesis-driven approach
+
+Hypothesis: Massed > Random == Spaced
+
+For example, assume that your hypothesis is that accuracy will be higher in the Massed condition than in the Random or Spaced condition (and that the Random and Spaced condition will be roughly equivalent).  Then you might code this hypothesis in the focal contrast code:
+(Massed,Random,Spaced)=(0.67,-0.33,-0.33)
+
+The values of the contrast code should:
+* sum to (roughly) 0
+* be unit-weighted, if possible (difference of 1)
+
+```{r}
+d$c1 <- ifelse(d$condition=="Massed",0.67,-0.33)
+```
+
+
+The basic approach that you might use to testing this hypothesis is the Abelson & Prentice approach (contrast + residual test). An alternative (more controversial) would be to simply use a single-contrast approach.
+
+###Abelson & Prentice
+
+Create a second contrast code that is *orthogonal* to c1
+
+c2 = (0,0.5,-0.5)
+
+c2 is orthogonal to c1 because 0.67 x 0 + -0.33 x 0.5 + -0.33 x -0.5 = 0.
+
+If there were more than 3 levels, say m total levels, we would create additional orthogonal contrasts (for a total of m - 1 orthogonal contrasts). 
+
+```{r}
+d$c2 <- ifelse(d$condition=="Massed",0, 
+               ifelse(d$condition=="Random",0.5,-0.5))
+```
+
+Now fit the model with c1 and c2
+
+```{r}
+m <- lm(accuracy~c1+c2, data=d)
+summary(m)
+```
+
+If c1 is significant and c2 is non-significant, you find evidence for your hypothesis c1.
+
+The reason to test c2 is to account for residual variance in the model, essentially to be sure that our focal contrast explains the variance adequately. If there were more than three levels, we would test all of the residual contrasts (c2, c3,...) as a group to see if they are (jointly) significant. Since we only have one residual contrast, we only need to check whether c2 is non-signficant/ does not explain a meaningful amount of variance.
+
+###Single-contrast
+
+The main controversial aspect of the Abelson & Prentice approach is that one is left interpreting a null effect (c2 is non-significant) as evidence of absence, i.e. that there is no effect. This goes against the basic tenets of null Null Hypothesis Testing. The single-contrast approach (Richter, 2015) says "why not just do away with this and simply test the hypothesis you are interested in?". In other words, on this approach (more controversially), you simply test c1.
+
+```{r}
+m <- lm(accuracy~c1, data=d)
+summary(m)
+```
+
+###What about a different hypothesis?
+
+You might have a different, hypothesis, e.g. a linear hypothesis such as Massed > Random > Spaced. You would test this hypothesis in an analogous way.
+
+```{r}
+#Massed > Random > Spaced
+d$c1 <- ifelse(d$condition=="Massed",0.5, 
+               ifelse(d$condition=="Random",0,-0.5))
+
+d$c2 <- ifelse(d$condition=="Massed",-0.33, 
+               ifelse(d$condition=="Random",0.67,-0.33))
+
+#fit model
+#Abelson & Prentice
+m <- lm(accuracy~c1+c2, data=d)
+summary(m)
+#single-contrast
+m <- lm(accuracy~c1, data=d)
+summary(m)
+```
+
+In the Abelson & Prentice case, c2 is also significant, which weakens the evidence for c1.
+
+## Agnostic approach
+
+In this approach, we don't have a specific hypothesis about the levels of the categorical variable, so we simply want to see if there are differences across our condition levels.
+
+If we plan to test 2 or 3 (pairwise) comparisons, the best approach is probably Fisher LSD protected testing.
+
+In this method, we first test the multi-df "overall" effect of our categorical variable. If this test is non-significant, we stop (there's no significant effect of condition). If it is significant, we can then move on to test all non-orthogonal contrasts with dummy codes.
+
+```{r}
+#agnostic approach
+#test overall effect of condition
+m1 <- lm(accuracy~condition, data=d)
+m2 <- lm(accuracy~1, data=d)
+anova(m1,m2)
+#2 df test significant.
+```
+
+Since the overall effect of condition is significant, we can now move on to testing the pairwise comparisons between different levels with dummy codes.
+
+```{r}
+#now test pairwise w/ orthogonal contrasts
+ 
+#Massed vs. Random
+#Random is reference level
+d$Massed_vs_Random <- ifelse(d$condition=="Massed",1,0)
+d$Spaced_vs_Random <- ifelse(d$condition=="Spaced",1,0)
+
+m <- lm(accuracy~Massed_vs_Random+Spaced_vs_Random,data=d)
+summary(m)
+
+#Massed vs. Spaced
+#Spaced is the reference level
+d$Massed_vs_Spaced <- ifelse(d$condition=="Massed",1,0)
+d$Random_vs_Spaced <- ifelse(d$condition=="Random",1,0)
+m <- lm(accuracy~Massed_vs_Spaced+Random_vs_Spaced,data=d)
+summary(m)
+
+```
+
+The Massed condition is signiciantly different from both the Spaced condition and the Random condition.
+
+Note that Random_vs_Spaced and Spaced_vs_Random yield the same effect, just in opposite directions.
+
+## Testing interactions (hypothesis-driven approach)
+
+For testing interactions with categorical variables that have more than two levels, the same basic approaches and logic apply. For instance, if we want to see if there is an interaction with age group (adults vs. kids), we can test this in a hyppthesis-driven manner as discussed above.
+
+```{r}
+#add interaction with group
+adults$group="adults"
+kids <- data.frame(subID = rep(paste("p",seq(n),sep=""), each=1),
+                accuracy = c(pmin(1,rnorm(n/3,mean=0.6,sd=0.2)),rep(pmin(1,rnorm(n/3,mean=0.6,sd=0.2)),each=2)),
+                condition = rep(c("Massed", "Spaced","Random"), each=n/3),
+                group="kids")
+
+d <- rbind(adults,kids)
+
+sumCond <-  d %>%
+  group_by(group,condition) %>%
+  summarize(meanAcc=mean(accuracy),seAcc=se(accuracy))
+
+ggplot(sumCond,aes(condition,meanAcc,fill=condition,color=condition)) +
+  geom_bar(stat="identity",color="black",alpha=0.5)+
+  geom_jitter(data=d,aes(y=accuracy,color=condition),width=0.1)+
+  geom_errorbar(aes(ymin=meanAcc-seAcc,ymax=meanAcc+seAcc),color="black",width=0)+
+  scale_color_brewer(type="qual",palette="Set1")+
+  scale_fill_brewer(type="qual",palette="Set1")+
+  ylab("accuracy")+
+  facet_wrap(~group)
+```
+
+###Abelson & Prentice approach.
+
+Fit model with two orthogonal contrast codes, where contrast code 1 represents the hypothesis of interest. To test if our Massed > Random == Spaced hypothesis (contrast code c1) differs between age group, we would ask 
+A) is the c1 * group effect significant?
+B) is the c2 * group effect non-significant?
+
+```{r}
+#Massed > Random = Spaced
+d$c1 <- ifelse(d$condition=="Massed",0.67,-0.33)
+
+d$c2 <- ifelse(d$condition=="Massed",0, 
+               ifelse(d$condition=="Random",0.5,-0.5))
+
+#fit model
+#Abelson & Prentice
+m <- lm(accuracy~(c1+c2)*group, data=d)
+summary(m)
+
+#c1*group is significant
+#c2*group is not
+#--> strong evidence for c1*group interaction
+```
+
+###Single-contrast approach
+
+For the single-contrast approach, one would simply test the interaction between contrast code c1 and group.
+
+``` {r}
+#single-contrast approach
+#simply fit model with c1*group, rather than try to interpret null effect of c2 as evidence that c2 is not real
+m <- lm(accuracy~c1*group, data=d)
+summary(m)
+```
+

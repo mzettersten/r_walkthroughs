@@ -1,0 +1,122 @@
+---
+title: "How to adjust chance level for logistic regression"
+output: html_document
+---
+
+First, let's create a little dataset
+
+Let's say that we have 
+
+1) 10 participants
+
+2) who completed 10 trials each.
+
+3) Each trial was an 8 alternative-forced-choice trial
+
+4) Participants were assigned randomly to an experimental condition.
+
+
+Let's also assume that the true mean for participants in the first condition is 1/8, and the true mean for participants in the second condition is 1/2.
+
+
+```{r, message=FALSE}
+#load necessary packages
+library(lme4)
+library(car)
+library(lmSupport)
+```
+
+```{r}
+####Create the dataset####
+
+#create subject codes
+subj=rep(c("subj1","subj2", "subj3", "subj4", "subj5", "subj6", "subj7", "subj8", "subj9", "subj10"),10)
+#create a between-subjects condition variable 
+cond=rep(rep(c("cond1", "cond2"),5),10)
+#create a random sample of responses, with .5 probability of being correct overall
+respCond1=sample(c(0,1), size=50, replace=T, prob=c(7/8,1/8))
+respCond2=sample(c(0,1), size=50, replace=T, prob=c(0.5,0.5))
+#combine responses so they correspond to the correct condition column
+#note we are not building in dependencies between responses in subjects
+resp=as.vector(rbind(respCond1, respCond2))
+
+#put it all together
+d=data.frame(subjects=subj, condition=cond, isRight=resp)
+```
+
+Let's just check to make sure our dataframe has the structure we envision:
+
+
+```{r}
+head(d,20)
+```
+
+**Testing performance against chance**
+
+*Step 1: Add an offset column*
+
+To test performance against chance in logistic mixed-effects regression, we can simply add an offset column that captures the chance level on any given trial. Assuming we have an 8 AFC task, that chance level would be 1/8 for every trial. Note that we could also create a column with chance levels varying from trial to trial.
+
+
+```{r}
+#create offset column
+d$chance=1/8
+
+head(d,20)
+```
+
+*Build a logistic mixed-effects model*
+
+Here, we will simply test whether people are above chance level overall in a logistic mixed-effects model, simply by adjusting our intercept to chance level through the offset() functionality. We need to also adjust the chance level values by the logit() function, since we are doing logistic regression.
+
+```{r}
+#build the model, adjusting the intercept and including a by-subject random intercept
+m=glmer(isRight~offset(logit(chance))+(1|subjects), data=d, family=binomial)
+#output a summary of model fit
+summary(m)
+```
+
+Overall, people are performing above chance, z=`r coefficients(summary(m))[3]`, p=`r coefficients(summary(m))[4]`.
+
+You can recreate the estimated mean response or probability of a correct response as estimated by the model like so:
+```{r}
+#calculate estimated logit value by adding back the offset value we subtracted
+interceptLogit=coefficients(summary(m))[1]+logit(1/8)
+#transform into the odds value
+odds=exp(interceptLogit)
+#transform the odds into the corresponding probability
+prob=odds/(1+odds)
+```
+
+
+The model estimates an overall mean of `r prob`.
+
+*More complex models*
+
+If you want to test chance levels in different conditions or just generally fit more complex models, you can do this in the typical way. For instance, what if I want to know whether participants are performing above chance in condition 1 and/or in cond2?
+
+
+Condition 1 Performance above chance?
+
+```{r}
+#center the condition predictor on condition 1
+d$condition1=varRecode(as.numeric(d$condition), c(1,2), c(0,1))
+#Fit model with condition variable centered on condition 1
+m=glmer(isRight~offset(logit(chance))+condition1+(1|subjects), data=d, family=binomial)
+summary(m)
+```
+
+Participants in condition 1 are not performing above chance, p=`r coefficients(summary(m))[1,4]`. But there is a significant condition difference, with people performing higher in cond2 than in cond1, p=`r coefficients(summary(m))[2,4]`
+
+
+Condition 2 Performance above chance?
+
+```{r}
+#center the condition predictor on condition 2
+d$condition2=varRecode(as.numeric(d$condition), c(1,2), c(-1,0))
+#Fit model with condition variable centered on condition 1
+m=glmer(isRight~offset(logit(chance))+condition2+(1|subjects), data=d, family=binomial)
+summary(m)
+```
+
+Participants in condition 2 are performing above chance, p=`r coefficients(summary(m))[1,4]`. The condition effect remains unchanged, of course.
