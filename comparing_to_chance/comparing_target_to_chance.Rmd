@@ -11,7 +11,7 @@ library(tidyverse)
 
 ## Intro
 
-A quick simulation to demonstrate that comparing %target choices to chance is not equivalent to comparing % target choices to %distractor choices (where %distractor = 1 - %target).
+A quick simulation to demonstrate that comparing %target choices to chance is equivalent to comparing % target choices to %distractor choices (where %distractor = 1 - %target).
 
 We'll quickly simulate 30 participants who complete 10 trials where they can choose either the target or distractor, assuming a true probability of p = 0.6 for choosing the target.
 
@@ -60,3 +60,4 @@ t.test(d$target_prop,mu=0.5)
 t.test(d$target_prop,d$distractor_prop,paired=TRUE)
 ```
 
+As we can see, the results of the t-test comparing proportion target choices to chance are the same as the paired t-test comparing target choices to distractor choices.
