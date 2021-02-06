@@ -1,0 +1,62 @@
+---
+title: "Target-Distractor-Chance Comparisons"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+
+#set seed
+```
+
+## Intro
+
+A quick simulation to demonstrate that comparing %target choices to chance is not equivalent to comparing % target choices to %distractor choices (where %distractor = 1 - %target).
+
+We'll quickly simulate 30 participants who complete 10 trials where they can choose either the target or distractor, assuming a true probability of p = 0.6 for choosing the target.
+
+```{r cars}
+n_part <- 30
+n_trials <- 10
+true_probability <- 0.6
+
+#use the binomial distribution to simulate the number of "successes"/ target choices
+num_target_choices <- rbinom(n_part,n_trials,true_probability)
+
+
+d <- data.frame(
+  participant_id = seq(1,n_part),
+  n_trials = rep(n_trials,n_part),
+  target_choices = num_target_choices
+) %>%
+  mutate(
+    distractor_choices = n_trials-target_choices,
+    target_prop = target_choices/n_trials,
+    distractor_prop = distractor_choices/n_trials
+  )
+```
+
+## Plot
+
+```{r}
+ggplot(d, aes(target_prop))+
+  geom_histogram()+
+  geom_density()+
+  geom_vline(xintercept=0.5)+
+  geom_vline(xintercept=0.6,linetype="dashed")
+```
+
+## T-Test against chance
+
+Here are the results for the t-test comparing proportion target choices to chance (0.5)
+
+```{r}
+t.test(d$target_prop,mu=0.5)
+```
+
+## Paired t-test comparing proportion target choices to proportion distractor choices
+
+```{r}
+t.test(d$target_prop,d$distractor_prop,paired=TRUE)
+```
+
