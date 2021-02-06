@@ -10,3 +10,7 @@ https://mzettersten.github.io/r_walkthroughs/cat_three_levels/cat_three_levels.h
 ## Adjusting offsets in glm/ glmer models
 
 https://mzettersten.github.io/r_walkthroughs/adjusting_offset/adjustingChanceLevels.html
+
+## Target-Distractor-Chance Comparisons
+
+https://mzettersten.github.io/r_walkthroughs/comparing_to_chance/comparing_target_to_chance.html
